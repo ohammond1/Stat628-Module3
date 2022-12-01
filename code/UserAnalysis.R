@@ -63,7 +63,7 @@ ggplot(data=user_df, aes(x=factor(elite_user), y=cool)) +
 
 ggplot(data=user_df, aes(x=factor(elite_user), y=fans)) +
     geom_bar(stat='summary', fun='mean', aes(fill=elite_user), show.legend = FALSE) +
-    ylab("Average 'Fans' per Review") +
+    ylab("Average 'Fans' per Reviewer") +
     xlab("Elite User") +
     ggtitle("Number of Average Fans of Elite vs Non-Elite Users") +
     theme(plot.title = element_text(hjust = 0.5),
@@ -99,4 +99,5 @@ ggplot(data=star_reviews, aes(x=Stars, y=percentage, fill=Elite_User)) +
     ylab("Number of Reviews") +
     xlab("Star Rating") +
     ggtitle("Review Distribution of Elite vs Non-Elite Users") +
-    theme(plot.title = element_text(hjust = 0.5))
+    theme(plot.title = element_text(hjust = 0.5),aspect.ratio = 6/10)+
+    scale_fill_discrete(name="User Type", labels=c("Normal","Elite"))
