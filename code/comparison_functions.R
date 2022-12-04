@@ -5,11 +5,14 @@ library(data.table)
 library(ggplot2)
 library(stringr)
 
-review_count_comparison <- function(business_df, reviews_df, user_df, categories, day_range) {
+review_count_comparison <- function(business_df, reviews_df, user_df, categories, day_range, elite) {
     # Get list of businesses by specific business type
     business_subset <- business_df
     for(cat in categories) {
         business_subset <- business_subset[str_detect(tolower(business_df$categories), tolower(cat)),]
+    }
+    if(dim(business_subset)[1] <10) {
+        return(NULL)
     }
     # Filter reviews down to the specified list
     reviews_subset <- reviews_df[reviews_df$business_id %in% business_subset$business_id,]
@@ -32,8 +35,8 @@ review_count_comparison <- function(business_df, reviews_df, user_df, categories
     # Check if user is elite when posting review
     review_users_df['flag'] <- mapply(grepl, review_users_df$year, review_users_df$elite)
     
-    # Get only reviews when the user was elite
-    elite_reviews_df <- review_users_df[review_users_df['flag']==TRUE,]
+    # Get only reviews when the user matches the elite flag
+    elite_reviews_df <- review_users_df[review_users_df['flag']==elite,]
     
     
     # Group Number of reviews by businesses and days
@@ -74,7 +77,7 @@ review_count_comparison <- function(business_df, reviews_df, user_df, categories
     return(reviews_comparison)
 }
 
-review_star_comparison <- function(business_df, reviews_df, user_df, categories, day_range) {
+review_star_comparison <- function(business_df, reviews_df, user_df, categories, day_range, elite) {
     # Get list of businesses by specific business type
     business_subset <- business_df
     for(cat in categories) {
@@ -102,8 +105,8 @@ review_star_comparison <- function(business_df, reviews_df, user_df, categories,
     # Check if user is elite when posting review
     review_users_df['flag'] <- mapply(grepl, review_users_df$year, review_users_df$elite)
     
-    # Get only reviews when the user was elite
-    elite_reviews_df <- review_users_df[review_users_df['flag']==TRUE,]
+    # Get only reviews when the user matches the elite flag
+    elite_reviews_df <- review_users_df[review_users_df['flag']==elite,]
     
     
     # Group Number of reviews by businesses and days
