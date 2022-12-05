@@ -117,26 +117,70 @@ for(i in 1:length(restaurant_list)) {
     rating_p_values[[i]] <- 1-perc.rank(boot_tests_rating[[i]]$t0)
 }
 
-# plot the difference in differences boot strap p-values
-boot_review_pval_df <- data.frame(p_value=unlist(review_p_values), category=restaurant_list)
+
+# Permutation testing
+# bootstrapping functions
+diff_in_diff_perm_reviews <- function(dataset, indices) {
+    df_subset <- dataset
+    df_subset$category <- df_subset$category[indices]
+    d_mean1 <- mean(df_subset[df_subset$category=='elite',]$reviews_after) - 
+        mean(df_subset[df_subset$category=='elite',]$reviews_before)
+    d_mean2 <- mean(df_subset[df_subset$category!='elite',]$reviews_after) - 
+        mean(df_subset[df_subset$category!='elite',]$reviews_before)
+    return(d_mean1 - d_mean2)
+}
+
+diff_in_diff_perm_ratings <- function(dataset, indices) {
+    df_subset <- dataset
+    df_subset$category <- df_subset$category[indices]
+    d_mean1 <- mean(df_subset[df_subset$category=='elite',]$rating_after) - 
+        mean(df_subset[df_subset$category=='elite',]$rating_before)
+    d_mean2 <- mean(df_subset[df_subset$category!='elite',]$rating_after) - 
+        mean(df_subset[df_subset$category!='elite',]$rating_before)
+    return(d_mean1 - d_mean2)
+}
+
+review_perm_p_values <- list()
+rating_perm_p_values <- list()
+for(i in 1:length(restaurant_list)) {
+    # Permutation test for reviews
+    print(i)
+    temp_boot <- boot(boot_review_comp[[i]], diff_in_diff_perm_reviews, R=1000)   
+    review_perm_p_values[[i]] <- mean(temp_boot$t > temp_boot$t0)
+    
+    # Permutation test for ratings
+    temp_boot <- boot(boot_ratings_comp[[i]], diff_in_diff_perm_ratings, R=1000)   
+    rating_perm_p_values[[i]] <- mean(temp_boot$t > temp_boot$t0)
+}
+
+# Create our alpha vector
+alpha <- 0.05 / c(18:1)
+
+# plot the difference in differences permutation p-values
+boot_review_pval_df <- data.frame(p_value=unlist(review_perm_p_values), category=restaurant_list)
 boot_review_pval_df <- boot_review_pval_df[order(boot_review_pval_df$p_value),]
+boot_review_pval_df$group_alpha <- alpha
 ggplot(data=boot_review_pval_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
     geom_bar(stat='identity', fill='lightblue') +
     theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
-    geom_hline(yintercept=0.0029,linetype='dotted',col='red') +
     xlab("Restaurant Type") +
     ylab('P-Value') +
-    ggtitle("Difference-in-Difference of Reviews")
+    ggtitle("Difference-in-Difference of Reviews") +
+    geom_step(data=boot_review_pval_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
 
-boot_rating_pval_df <- data.frame(p_value=unlist(rating_p_values), category=restaurant_list)
+boot_rating_pval_df <- data.frame(p_value=unlist(rating_perm_p_values), category=restaurant_list)
 boot_rating_pval_df <- boot_rating_pval_df[order(boot_rating_pval_df$p_value),]
+boot_rating_pval_df$group_alpha <- alpha
 ggplot(data=boot_rating_pval_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
     geom_bar(stat='identity', fill='lightblue') +
     theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
-    geom_hline(yintercept=0.0029,linetype='dotted',col='red') +
     xlab("Restaurant Type") +
     ylab('P-Value') +
-    ggtitle("Difference-in-Difference of Ratings")
+    ggtitle("Difference-in-Difference of Ratings") +
+    geom_step(data=boot_rating_pval_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+
+df_subset_test <- boot_review_comp[[1]]
+df_subset_test$category <- df_subset_test$category[c(1,2,3)]
 
 
 p_values <- list()

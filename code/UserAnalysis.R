@@ -1,6 +1,6 @@
 library(ggplot2)
 
-user_df <- read.csv('../data/users.csv')
+all_user_df <- read.csv('../data/users.csv')
 reviews_df <- read.csv('../data/csv_dataset/reviews_no_text.csv')
 
 user_df$elite_user <- user_df$elite != ''
