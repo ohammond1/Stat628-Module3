@@ -158,6 +158,10 @@ for(i in 1:length(restaurant_list)) {
     # Permutation test for ratings
     temp_boot <- boot(boot_ratings_comp[[i]], diff_in_diff_perm_ratings, R=1000)   
     rating_perm_p_values[[i]] <- mean(temp_boot$t > temp_boot$t0)
+    
+    # Include adjustment for actual observed value
+    review_perm_p_values[[i]] <- review_perm_p_values[[i]] + (1/1000)
+    rating_perm_p_values[[i]] <- rating_perm_p_values[[i]] + (1/1000)
 }
 
 # Create our alpha vector
@@ -165,27 +169,29 @@ alpha <- 0.05 / c(18:1)
 
 # plot the difference in differences permutation p-values
 boot_review_pval_df <- data.frame(p_value=unlist(review_perm_p_values), category=restaurant_list)
-boot_review_pval_df <- boot_review_pval_df[order(boot_review_pval_df$p_value),]
+boot_review_pval_df <- boot_review_pval_df[order(boot_review_pval_df$p_value, boot_review_pval_df$category),]
 boot_review_pval_df$group_alpha <- alpha
-ggplot(data=boot_review_pval_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+boot_review_pval_min_df <- boot_review_pval_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=boot_review_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
     geom_bar(stat='identity', fill='lightblue') +
     theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
     xlab("Restaurant Type") +
     ylab('P-Value') +
-    ggtitle("Difference-in-Difference of Reviews") +
-    geom_step(data=boot_review_pval_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+    ggtitle("Difference-in-Difference of Reviews - Permutation Test Top 8") +
+    geom_step(data=boot_review_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
 
 # plot the difference-in-differences of ratings permutation testing
 boot_rating_pval_df <- data.frame(p_value=unlist(rating_perm_p_values), category=restaurant_list)
 boot_rating_pval_df <- boot_rating_pval_df[order(boot_rating_pval_df$p_value),]
 boot_rating_pval_df$group_alpha <- alpha
-ggplot(data=boot_rating_pval_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+boot_rating_pval_min_df <- boot_rating_pval_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=boot_rating_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
     geom_bar(stat='identity', fill='lightblue') +
     theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
     xlab("Restaurant Type") +
     ylab('P-Value') +
-    ggtitle("Difference-in-Difference of Ratings") +
-    geom_step(data=boot_rating_pval_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+    ggtitle("Difference-in-Difference of Ratings - Permutation Test Top 8") +
+    geom_step(data=boot_rating_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
 
 # p-values for paired t-test
 p_values_review <- list()
@@ -197,6 +203,31 @@ for(i in 1:length(restaurant_list)) {
                           paired=TRUE, alternative = 'less')$p.value
 }
 
+# plot the paired t-test of reviews
+paired_review_df <- data.frame(p_value=unlist(p_values_review), category=restaurant_list)
+paired_review_df <- paired_review_df[order(paired_review_df$p_value),]
+paired_review_df$group_alpha <- alpha
+paired_review_pval_min_df <- paired_review_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=paired_review_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+    geom_bar(stat='identity', fill='lightblue') +
+    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
+    xlab("Restaurant Type") +
+    ylab('P-Value') +
+    ggtitle("Paired T-test Number of Reviews - Top 8") +
+    geom_step(data=paired_review_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+
+# plot the paired t-test of ratings
+paired_rating_df <- data.frame(p_value=unlist(p_value_rating), category=restaurant_list)
+paired_rating_df <- paired_rating_df[order(paired_rating_df$p_value),]
+paired_rating_df$group_alpha <- alpha
+paired_rating_pval_min_df <- paired_rating_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=paired_rating_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+    geom_bar(stat='identity', fill='lightblue') +
+    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
+    xlab("Restaurant Type") +
+    ylab('P-Value') +
+    ggtitle("Paired T-test Number of Ratings - Top 8") +
+    geom_step(data=paired_rating_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
 
 
 
