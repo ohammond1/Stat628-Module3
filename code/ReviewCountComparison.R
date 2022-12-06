@@ -25,6 +25,7 @@ restaurant_list <- c('Brazilian','British','Cajun','Chinese','Cuban',
                      'Mediterranean','Mexican','Middle Eastern','Modern European',
                      'Korean','Peruvian','Vietnamese','American')
 
+# Complete comparison for reviews and ratings using functions in comparison_functions.R
 review_comp <- list()
 rating_comp <- list()
 day_range <- 30
@@ -40,6 +41,8 @@ for(i in 1:length(restaurant_list)) {
                                                day_range,
                                                TRUE)
 }
+
+# Create comparison and differences for non-elite reviews for diff-in-diff analysis
 review_comp_non_elite <- list()
 rating_comp_non_elite <- list()
 for(i in 1:length(restaurant_list)) {
@@ -55,7 +58,8 @@ for(i in 1:length(restaurant_list)) {
                                                FALSE)
 }
 
-# bootstrapping functions
+# bootstrapping functions for difference-in-difference
+# Review bootstrap
 diff_in_diff_reviews <- function(dataset, indices) {
     df_subset <- dataset[indices,]
     d_mean1 <- mean(df_subset[df_subset$category=='elite',]$reviews_after) - 
@@ -65,6 +69,7 @@ diff_in_diff_reviews <- function(dataset, indices) {
     return(d_mean1 - d_mean2)
 }
 
+# Rating Bootstrap for difference-in-difference
 diff_in_diff_ratings <- function(dataset, indices) {
     df_subset <- dataset[indices,]
     d_mean1 <- mean(df_subset[df_subset$category=='elite',]$rating_after) - 
@@ -74,7 +79,7 @@ diff_in_diff_ratings <- function(dataset, indices) {
     return(d_mean1 - d_mean2)
 }
 
-# Formatting data into bootstrap
+# Formatting data into dataframes for bootstrap
 boot_review_comp <- list()
 boot_ratings_comp <- list()
 for(i in 1:length(restaurant_list)) {
@@ -117,130 +122,159 @@ for(i in 1:length(restaurant_list)) {
     rating_p_values[[i]] <- 1-perc.rank(boot_tests_rating[[i]]$t0)
 }
 
-# plot the difference in differences boot strap p-values
-boot_review_pval_df <- data.frame(p_value=unlist(review_p_values), category=restaurant_list)
-boot_review_pval_df <- boot_review_pval_df[order(boot_review_pval_df$p_value),]
-ggplot(data=boot_review_pval_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
-    geom_bar(stat='identity', fill='lightblue') +
-    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
-    geom_hline(yintercept=0.0029,linetype='dotted',col='red') +
-    xlab("Restaurant Type") +
-    ylab('P-Value') +
-    ggtitle("Difference-in-Difference of Reviews")
 
-boot_rating_pval_df <- data.frame(p_value=unlist(rating_p_values), category=restaurant_list)
-boot_rating_pval_df <- boot_rating_pval_df[order(boot_rating_pval_df$p_value),]
-ggplot(data=boot_rating_pval_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
-    geom_bar(stat='identity', fill='lightblue') +
-    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
-    geom_hline(yintercept=0.0029,linetype='dotted',col='red') +
-    xlab("Restaurant Type") +
-    ylab('P-Value') +
-    ggtitle("Difference-in-Difference of Ratings")
+# bootstrapping functions for Permutation testing
+# Difference-in-difference of reviews
+diff_in_diff_perm_reviews <- function(dataset, indices) {
+    df_subset <- dataset
+    df_subset$category <- df_subset$category[indices]
+    d_mean1 <- mean(df_subset[df_subset$category=='elite',]$reviews_after) - 
+        mean(df_subset[df_subset$category=='elite',]$reviews_before)
+    d_mean2 <- mean(df_subset[df_subset$category!='elite',]$reviews_after) - 
+        mean(df_subset[df_subset$category!='elite',]$reviews_before)
+    return(d_mean1 - d_mean2)
+}
 
+# Difference-in-difference of ratings
+diff_in_diff_perm_ratings <- function(dataset, indices) {
+    df_subset <- dataset
+    df_subset$category <- df_subset$category[indices]
+    d_mean1 <- mean(df_subset[df_subset$category=='elite',]$rating_after) - 
+        mean(df_subset[df_subset$category=='elite',]$rating_before)
+    d_mean2 <- mean(df_subset[df_subset$category!='elite',]$rating_after) - 
+        mean(df_subset[df_subset$category!='elite',]$rating_before)
+    return(d_mean1 - d_mean2)
+}
 
-p_values <- list()
+# Run the permutation tests and record p-values
+review_perm_p_values <- list()
+rating_perm_p_values <- list()
 for(i in 1:length(restaurant_list)) {
-    p_values[i] <- t.test(review_comp[[i]]$reviews_before, review_comp[[i]]$reviews_after,
+    # Permutation test for reviews
+    print(i)
+    temp_boot <- boot(boot_review_comp[[i]], diff_in_diff_perm_reviews, R=1000)   
+    review_perm_p_values[[i]] <- mean(temp_boot$t > temp_boot$t0)
+    
+    # Permutation test for ratings
+    temp_boot <- boot(boot_ratings_comp[[i]], diff_in_diff_perm_ratings, R=1000)   
+    rating_perm_p_values[[i]] <- mean(temp_boot$t > temp_boot$t0)
+    
+    # Include adjustment for actual observed value
+    review_perm_p_values[[i]] <- review_perm_p_values[[i]] + (1/1000)
+    rating_perm_p_values[[i]] <- rating_perm_p_values[[i]] + (1/1000)
+}
+
+# Create our alpha vector
+alpha <- 0.05 / c(18:1)
+
+# plot the difference in differences permutation p-values
+boot_review_pval_df <- data.frame(p_value=unlist(review_perm_p_values), category=restaurant_list)
+boot_review_pval_df <- boot_review_pval_df[order(boot_review_pval_df$p_value, boot_review_pval_df$category),]
+boot_review_pval_df$group_alpha <- alpha
+boot_review_pval_min_df <- boot_review_pval_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=boot_review_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+    geom_bar(stat='identity', fill='lightblue') +
+    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
+    xlab("Restaurant Type") +
+    ylab('P-Value') +
+    ggtitle("Difference-in-Difference of Reviews - Permutation Test Top 8") +
+    geom_step(data=boot_review_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+
+# plot the difference-in-differences of ratings permutation testing
+boot_rating_pval_df <- data.frame(p_value=unlist(rating_perm_p_values), category=restaurant_list)
+boot_rating_pval_df <- boot_rating_pval_df[order(boot_rating_pval_df$p_value),]
+boot_rating_pval_df$group_alpha <- alpha
+boot_rating_pval_min_df <- boot_rating_pval_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=boot_rating_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+    geom_bar(stat='identity', fill='lightblue') +
+    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
+    xlab("Restaurant Type") +
+    ylab('P-Value') +
+    ggtitle("Difference-in-Difference of Ratings - Permutation Test Top 8") +
+    geom_step(data=boot_rating_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+
+# p-values for paired t-test
+p_values_review <- list()
+p_value_rating <- list()
+for(i in 1:length(restaurant_list)) {
+    p_values_review[[i]] <- t.test(review_comp[[i]]$reviews_before, review_comp[[i]]$reviews_after,
+                          paired=TRUE, alternative = 'less')$p.value
+    p_value_rating[[i]] <- t.test(rating_comp[[i]]$rating_before, rating_comp[[i]]$rating_after,
                           paired=TRUE, alternative = 'less')$p.value
 }
 
+# plot the paired t-test of reviews
+paired_review_df <- data.frame(p_value=unlist(p_values_review), category=restaurant_list)
+paired_review_df <- paired_review_df[order(paired_review_df$p_value),]
+paired_review_df$group_alpha <- alpha
+paired_review_pval_min_df <- paired_review_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=paired_review_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+    geom_bar(stat='identity', fill='lightblue') +
+    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
+    xlab("Restaurant Type") +
+    ylab('P-Value') +
+    ggtitle("Paired T-test Number of Reviews - Top 8") +
+    geom_step(data=paired_review_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
+
+# plot the paired t-test of ratings
+paired_rating_df <- data.frame(p_value=unlist(p_value_rating), category=restaurant_list)
+paired_rating_df <- paired_rating_df[order(paired_rating_df$p_value),]
+paired_rating_df$group_alpha <- alpha
+paired_rating_pval_min_df <- paired_rating_df[c(1,2,3,4,5,6,7,8),]
+ggplot(data=paired_rating_pval_min_df,mapping=aes(x=reorder(category,p_value), y=p_value)) +
+    geom_bar(stat='identity', fill='lightblue') +
+    theme(axis.text.x = element_text(angle = 60, vjust = 1.05, hjust=1.1)) +
+    xlab("Restaurant Type") +
+    ylab('P-Value') +
+    ggtitle("Paired T-test Number of Ratings - Top 8") +
+    geom_step(data=paired_rating_pval_min_df, mapping=aes(x=as.numeric(as.factor(reorder(category,p_value))), y=group_alpha), col='red', linetype='dashed')
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Looking At chinese Restaurants
-print("Chinese Restaurants")
-chinese_30_review_comparison <- review_count_comparison(business_df, reviews_df, user_df,
-                                                c('Chinese','Restaurant'),
-                                                30)
-length(unique(chinese_30_review_comparison$business_id))
-chinese_30_star_comparison <- review_star_comparison(business_df, reviews_df, user_df,
-                                                        c('Chinese','Restaurant'),
-                                                        30)
-
-
-chinese_30_comparison$review_change <- chinese_30_comparison$reviews_after - chinese_30_comparison$reviews_before
-# Do a paired samplet-test
-t.test(chinese_30_review_comparison$reviews_before, chinese_30_review_comparison$reviews_after,
-       paired=TRUE, alternative = 'less')
-
-t.test(chinese_30_star_comparison$rating_before, chinese_30_star_comparison$rating_after,
-       paired=TRUE, alternative = 'less')
-
-
-print("Japanese Restaurants")
-japanese_30_comparison <- review_count_comparison(business_df, reviews_df, user_df,
-                                                 'Japanese',
-                                                 'Restaurant',
-                                                 30)
-
-t.test(japanese_30_comparison$reviews_before, japanese_30_comparison$reviews_after,
-       paired=TRUE, alternative = 'less')
-
-
-print("American Restaurants")
-american_30_reviews_comparison <- review_count_comparison(business_df, reviews_df, user_df,
-                                                c('American','Restaurant'),
-                                                30)
-
-t.test(american_30_reviews_comparison$reviews_before, american_30_reviews_comparison$reviews_after,
-       paired=TRUE, alternative = 'less')
-
-print("Burger Restaurants")
-burgers_30_comparison <- review_count_comparison(business_df, reviews_df, user_df,
-                                                 'Burgers',
-                                                 'Restaurant',
-                                                 30)
-
-t.test(burgers_30_comparison$reviews_before, burgers_30_comparison$reviews_after,
-       paired=TRUE, alternative = 'less')
-
-
-
-ggplot(chinese_30_comparison, aes(x=factor(0), y=review_change)) +
-    geom_boxplot(width=0.2) +
-    theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank()) +
-    ylim(-50,50) +
-    ylab("Review Change") +
-    ggtitle("Difference in Number of Reviews: Chinese Restaurants")
+# Create Dataframe for shinyapp
+review_elite_diff <- c()
+rating_elite_diff <- c()
+review_diff_in_diff <- c()
+rating_diff_in_diff <- c()
+for(i in 1:length(restaurant_list)) {
+    # create temp variables for each difference
+    temp_elite_review_diff <- mean(review_comp[[i]]$reviews_after - review_comp[[i]]$reviews_before)
+    temp_elite_rating_diff <- mean(rating_comp[[i]]$rating_after - rating_comp[[i]]$rating_before)
+    temp_normal_review_diff <- mean(review_comp_non_elite[[i]]$reviews_after - review_comp_non_elite[[i]]$reviews_before)
+    temp_normal_rating_diff <- mean(rating_comp_non_elite[[i]]$rating_after - rating_comp_non_elite[[i]]$rating_before)
     
-ggplot(chinese_30_comparison, aes(review_change),) +
-    geom_histogram(binwidth=1, aes(y=..count../sum(..count..)), fill='#E68613') +
-    ylab("Percentage") +
-    xlab("Review Difference") +
-    xlim(-15,15)+
-    ggtitle("Difference in Number of Reviews of Chinese Restaurants") +
-    scale_y_continuous(label=scales::percent) +
-    theme(plot.title = element_text(hjust = 0.5),aspect.ratio = 6/10)
+    # add them to vectors
+    review_elite_diff[i] <- temp_elite_review_diff
+    rating_elite_diff[i] <- temp_elite_rating_diff
+    
+    review_diff_in_diff[i] <- temp_elite_review_diff - temp_normal_review_diff
+    rating_diff_in_diff[i] <-temp_normal_review_diff - temp_normal_rating_diff
+}
 
-ggplot(rating_comparison, aes(rating_change),) +
-    geom_histogram(binwidth=.15, aes(y=..count../sum(..count..)), fill='#00B4EF') +
-    ylab("Percentage") +
-    xlab("Rating Difference") +
-    xlim(-4,4)+
-    ggtitle("Difference in Rating of Chinese Restaurants") +
-    scale_y_continuous(label=scales::percent) +
-    theme(plot.title = element_text(hjust = 0.5),aspect.ratio = 6/10)
+# create Dataframe of variables
+shiny_app_df <- data.frame(restaurant=restaurant_list, 
+                           review_elite_diff= review_elite_diff, rating_elite_diff=rating_elite_diff,
+                           review_diff_in_diff = review_diff_in_diff, rating_diff_in_diff= rating_diff_in_diff,
+                           review_paired_pval = unlist(p_values_review),
+                           rating_paired_pval = unlist(p_value_rating),
+                           diff_in_diff_reviews_pval = unlist(review_perm_p_values),
+                           diff_in_diff_rating_pval = unlist(rating_perm_p_values)
+                           )
+
+save(shiny_app_df,file='../data/shiny_app_data.Rda')
 
 
-t.test(reviews_comparison$reviews_after, reviews_comparison$reviews_before,
-       paired=TRUE, alternative = 'greater')
+# Get some summary statistics about data analyzed
+count_df <- data.frame(matrix(ncol=5,nrow=0,dimnames=list(NULL,c('restaurant', 'elite_review_count','non_elite_review_count', 'elite_rating_count', 'non_elite_rating_count'))))
+for(i in 1:length(restaurant_list)) {
+    count_df[i,] <- list(restaurant_list[i],
+                    dim(review_comp[[i]])[1],
+                    dim(rating_comp[[i]])[1],
+                    dim(review_comp_non_elite[[i]])[1],
+                    dim(rating_comp_non_elite[[i]])[1])
+}
 
-t.test(rating_comparison$rating_after, rating_comparison$rating_before,
-       paired=TRUE, alternative = 'greater')
-
-mean(rating_comparison$rating_after)
-mean(rating_comparison$rating_before)
+sum(count_df[,'elite_review_count']) +
+sum(count_df[,'non_elite_review_count'])
+min(reviews_df[,'date'])
+max(reviews_df[,'date'])
