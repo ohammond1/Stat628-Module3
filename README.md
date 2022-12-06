@@ -29,6 +29,7 @@ Our code is split between both R and python, due to difficulties loading the ini
 - `Stat 628_Module 3 - Group 9 Executive Summary.pdf` contains the executive summary of our analysis.
 - `628 Presentation 2.pdf` contains our final presentation slides.
 - `628 Presentation 1.pdf` contains our preliminary presentation slides.
+
 The `code/experimentation` files are older files that were made during initial data exploration and testing.
 
 ## Images 
